@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["vistor"]
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  INSPECTOR
+
+  @@schema("vistor")
+}
+
+enum ReservationStatus {
+  SCHEDULED
+  DELIVERY_INSPECTION
+  IN_USE
+  AWAITING_RETURN
+  COMPLETED
+  CANCELLED
+
+  @@schema("vistor")
+}
+
+enum InspectionType {
+  DELIVERY
+  RETURN
+
+  @@schema("vistor")
+}
+
+enum InspectionStatus {
+  IN_PROGRESS
+  COMPLETED
+
+  @@schema("vistor")
+}
+
+enum ItemCondition {
+  OK
+  CAVEAT
+  DAMAGED
+  MISSING
+  NA
+
+  @@schema("vistor")
+}
+
+// ─── Models ──────────────────────────────────────────────
+
+model Condominium {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  areas Area[]
+  users User[]
+
+  @@map("condominiums")
+  @@schema("vistor")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  name          String
+  role          UserRole  @default(INSPECTOR)
+  condominiumId String    @map("condominium_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  condominium Condominium  @relation(fields: [condominiumId], references: [id])
+  inspections Inspection[]
+
+  @@map("users")
+  @@schema("vistor")
+}
+
+model Area {
+  id            String  @id @default(uuid())
+  name          String
+  description   String?
+  condominiumId String  @map("condominium_id")
+  order         Int     @default(0)
+  active        Boolean @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  condominium  Condominium   @relation(fields: [condominiumId], references: [id])
+  environments Environment[]
+  reservations Reservation[]
+
+  @@map("areas")
+  @@schema("vistor")
+}
+
+model Environment {
+  id       String  @id @default(uuid())
+  name     String
+  areaId   String  @map("area_id")
+  order    Int     @default(0)
+  active   Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  area  Area             @relation(fields: [areaId], references: [id])
+  items InspectionItem[]
+
+  @@map("environments")
+  @@schema("vistor")
+}
+
+model InspectionItem {
+  id               String  @id @default(uuid())
+  name             String
+  environmentId    String  @map("environment_id")
+  hasQuantity      Boolean @default(false) @map("has_quantity")
+  expectedQuantity Int?    @map("expected_quantity")
+  order            Int     @default(0)
+  active           Boolean @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  environment Environment            @relation(fields: [environmentId], references: [id])
+  results     InspectionItemResult[]
+
+  @@map("inspection_items")
+  @@schema("vistor")
+}
+
+model Reservation {
+  id               String            @id @default(uuid())
+  areaId           String            @map("area_id")
+  unit             String
+  responsibleName  String            @map("responsible_name")
+  responsiblePhone String?           @map("responsible_phone")
+  eventDate        DateTime          @map("event_date") @db.Date
+  startTime        String            @map("start_time")
+  endTime          String            @map("end_time")
+  status           ReservationStatus @default(SCHEDULED)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  area        Area         @relation(fields: [areaId], references: [id])
+  inspections Inspection[]
+
+  @@map("reservations")
+  @@schema("vistor")
+}
+
+model Inspection {
+  id              String           @id @default(uuid())
+  reservationId   String           @map("reservation_id")
+  type            InspectionType
+  status          InspectionStatus @default(IN_PROGRESS)
+  inspectorId     String           @map("inspector_id")
+  confirmedByName String?          @map("confirmed_by_name")
+  signatureUrl    String?          @map("signature_url")
+  notes           String?
+  startedAt       DateTime         @default(now()) @map("started_at")
+  completedAt     DateTime?        @map("completed_at")
+  confirmedAt     DateTime?        @map("confirmed_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  reservation Reservation            @relation(fields: [reservationId], references: [id])
+  inspector   User                   @relation(fields: [inspectorId], references: [id])
+  results     InspectionItemResult[]
+
+  @@unique([reservationId, type])
+  @@map("inspections")
+  @@schema("vistor")
+}
+
+model InspectionItemResult {
+  id               String        @id @default(uuid())
+  inspectionId     String        @map("inspection_id")
+  inspectionItemId String        @map("inspection_item_id")
+  condition        ItemCondition
+  notes            String?
+  quantityFound    Int?          @map("quantity_found")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  inspection     Inspection       @relation(fields: [inspectionId], references: [id])
+  inspectionItem InspectionItem   @relation(fields: [inspectionItemId], references: [id])
+  photos         InspectionPhoto[]
+
+  @@unique([inspectionId, inspectionItemId])
+  @@map("inspection_item_results")
+  @@schema("vistor")
+}
+
+model InspectionPhoto {
+  id           String   @id @default(uuid())
+  resultId     String   @map("result_id")
+  url          String
+  originalName String?  @map("original_name")
+  sizeBytes    Int?     @map("size_bytes")
+  mimeType     String?  @map("mime_type")
+  capturedAt   DateTime @default(now()) @map("captured_at")
+
+  result InspectionItemResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+
+  @@map("inspection_photos")
+  @@schema("vistor")
+}

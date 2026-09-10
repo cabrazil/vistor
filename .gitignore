@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+**/node_modules/
+
+# Production Builds & Cache
+dist
+**/dist/
+dist-ssr
+**/dist-ssr/
+.vite/
+**/.vite/
+
+# Environment & Credentials
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Media Uploads (keep folder with .gitkeep)
+uploads/*
+**/uploads/*
+!**/uploads/.gitkeep
+
+# System & Logs
+*.log
+**/*.log
+.DS_Store
+**/.DS_Store
