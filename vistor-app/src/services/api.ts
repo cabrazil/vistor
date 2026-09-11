@@ -1,4 +1,19 @@
-const API_BASE = (import.meta.env.VITE_API_URL as string) || '/api';
+function getApiBase(): string {
+  const envUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (!envUrl) return '/api';
+  const clean = envUrl.replace(/\/+$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+}
+
+export const API_BASE = getApiBase();
+
+export function getMediaUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const envUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  const baseUrl = envUrl ? envUrl.replace(/\/+$/, '').replace(/\/api$/, '') : '';
+  return baseUrl ? `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}` : path;
+}
 
 class ApiClient {
   private token: string | null = null;
@@ -34,10 +49,16 @@ class ApiClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers,
+      });
+    } catch (err: unknown) {
+      console.error('Fetch error:', err);
+      throw new Error('Falha de rede: Não foi possível conectar ao servidor da API. Verifique sua conexão.');
+    }
 
     if (response.status === 401) {
       this.setToken(null);
@@ -46,7 +67,9 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+      const error = await response.json().catch(() => ({
+        message: `Erro ${response.status}: Falha na comunicação com o servidor (${response.statusText || 'Não encontrado'})`
+      }));
       throw new Error(error.message || `Erro ${response.status}`);
     }
 

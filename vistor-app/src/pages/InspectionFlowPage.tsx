@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 import type {
   Inspection,
   Area,
@@ -628,9 +628,9 @@ export default function InspectionFlowPage() {
                 {photos.map((p) => (
                   <div key={p.id} className="relative group shrink-0 w-24 h-24 rounded-2xl overflow-hidden border border-white/10 bg-slate-950 shadow-md">
                     <img
-                      src={p.url}
+                      src={getMediaUrl(p.url)}
                       alt="Foto do item"
-                      onClick={() => setSelectedPhotoPreview(p.url)}
+                      onClick={() => setSelectedPhotoPreview(getMediaUrl(p.url))}
                       className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
                     />
                     <button
