@@ -4,26 +4,36 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding Vistor database...');
+  console.log('🌱 Inicializando seed do Vistor...');
 
-  // ─── Condomínio ────────────────────────────────────────
-  const condominium = await prisma.condominium.upsert({
-    where: { id: 'condo-demo-001' },
-    update: {},
-    create: {
+  // ─── Zerar a base de dados (schema vistor) ────────────────
+  console.log('🧹 Zerando base de dados existente (schema vistor)...');
+  await prisma.inspectionPhoto.deleteMany();
+  await prisma.inspectionItemResult.deleteMany();
+  await prisma.inspection.deleteMany();
+  await prisma.reservation.deleteMany();
+  await prisma.inspectionItem.deleteMany();
+  await prisma.environment.deleteMany();
+  await prisma.area.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.condominium.deleteMany();
+  console.log('✓ Base de dados zerada com sucesso!');
+
+  // ─── Condomínio Arken ──────────────────────────────────
+  const condominium = await prisma.condominium.create({
+    data: {
       id: 'condo-demo-001',
-      name: 'Condomínio Residencial Parque das Flores',
-      address: 'Rua das Acácias, 500 - São Paulo, SP',
+      name: 'Arken',
+      address: 'São Paulo, SP',
     },
   });
   console.log(`✓ Condomínio: ${condominium.name}`);
 
   // ─── Usuário Admin ─────────────────────────────────────
   const passwordHash = await bcrypt.hash('vistor123', 10);
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@vistor.app' },
-    update: {},
-    create: {
+  const admin = await prisma.user.create({
+    data: {
+      id: 'user-admin-001',
       email: 'admin@vistor.app',
       passwordHash,
       name: 'Administrador',
@@ -34,10 +44,9 @@ async function main() {
   console.log(`✓ Usuário admin: ${admin.email}`);
 
   // ─── Usuário Inspetor ──────────────────────────────────
-  const inspector = await prisma.user.upsert({
-    where: { email: 'zelador@vistor.app' },
-    update: {},
-    create: {
+  const inspector = await prisma.user.create({
+    data: {
+      id: 'user-inspector-001',
       email: 'zelador@vistor.app',
       passwordHash: await bcrypt.hash('vistor123', 10),
       name: 'João Zelador',
@@ -48,20 +57,18 @@ async function main() {
   console.log(`✓ Usuário inspetor: ${inspector.email}`);
 
   // ─── Área: Salão de Festas ─────────────────────────────
-  const area = await prisma.area.upsert({
-    where: { id: 'area-salao-001' },
-    update: {},
-    create: {
+  const area = await prisma.area.create({
+    data: {
       id: 'area-salao-001',
       name: 'Salão de Festas',
-      description: 'Salão de festas principal do condomínio, com capacidade para 80 pessoas.',
+      description: 'Salão de festas principal do condomínio Arken, com capacidade para 80 pessoas.',
       condominiumId: condominium.id,
       order: 1,
     },
   });
   console.log(`✓ Área: ${area.name}`);
 
-  // ─── Ambientes e Itens ─────────────────────────────────
+  // ─── Ambientes e Itens (Sem Área Externa e Sem Churrasqueira) ───
   const environmentsData = [
     {
       id: 'env-salao-principal',
@@ -115,34 +122,9 @@ async function main() {
       ],
     },
     {
-      id: 'env-churrasqueira',
-      name: 'Churrasqueira',
-      order: 4,
-      items: [
-        { name: 'Churrasqueira', order: 1 },
-        { name: 'Grelha', order: 2 },
-        { name: 'Bancada', order: 3 },
-        { name: 'Pia', order: 4 },
-        { name: 'Torneira', order: 5 },
-        { name: 'Iluminação', order: 6 },
-      ],
-    },
-    {
-      id: 'env-area-externa',
-      name: 'Área Externa',
-      order: 5,
-      items: [
-        { name: 'Piso/calçada', order: 1 },
-        { name: 'Iluminação externa', order: 2 },
-        { name: 'Jardim/paisagismo', order: 3 },
-        { name: 'Portão de acesso', order: 4 },
-        { name: 'Lixeiras externas', order: 5, hasQuantity: true, expectedQuantity: 2 },
-      ],
-    },
-    {
       id: 'env-equipamentos',
       name: 'Equipamentos',
-      order: 6,
+      order: 4,
       items: [
         { name: 'Caixa de som', order: 1, hasQuantity: true, expectedQuantity: 2 },
         { name: 'Microfone', order: 2, hasQuantity: true, expectedQuantity: 1 },
@@ -154,10 +136,8 @@ async function main() {
   ];
 
   for (const envData of environmentsData) {
-    const environment = await prisma.environment.upsert({
-      where: { id: envData.id },
-      update: {},
-      create: {
+    const environment = await prisma.environment.create({
+      data: {
         id: envData.id,
         name: envData.name,
         areaId: area.id,
@@ -166,10 +146,8 @@ async function main() {
     });
 
     for (const item of envData.items) {
-      await prisma.inspectionItem.upsert({
-        where: { id: `item-${envData.id}-${item.order}` },
-        update: {},
-        create: {
+      await prisma.inspectionItem.create({
+        data: {
           id: `item-${envData.id}-${item.order}`,
           name: item.name,
           environmentId: environment.id,
@@ -183,7 +161,7 @@ async function main() {
     console.log(`  ✓ Ambiente: ${envData.name} (${envData.items.length} itens)`);
   }
 
-  // ─── Reservas fictícias ────────────────────────────────
+  // ─── Reservas fictícias limpas (prontas para nova vistoria) ────────
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -226,10 +204,8 @@ async function main() {
   ];
 
   for (const res of reservations) {
-    await prisma.reservation.upsert({
-      where: { id: res.id },
-      update: {},
-      create: {
+    await prisma.reservation.create({
+      data: {
         id: res.id,
         areaId: area.id,
         unit: res.unit,
@@ -244,11 +220,11 @@ async function main() {
     console.log(`  ✓ Reserva: ${res.unit} - ${res.responsibleName}`);
   }
 
-  console.log('\n✅ Seed concluído com sucesso!');
+  console.log('\n✅ Seed Arken concluído com sucesso!');
   console.log('\n📋 Resumo:');
   console.log(`   Condomínio: ${condominium.name}`);
   console.log(`   Área: ${area.name}`);
-  console.log(`   Ambientes: ${environmentsData.length}`);
+  console.log(`   Ambientes: ${environmentsData.length} (Salão Principal, Cozinha, Banheiros, Equipamentos)`);
   console.log(`   Itens: ${environmentsData.reduce((sum, e) => sum + e.items.length, 0)}`);
   console.log(`   Reservas: ${reservations.length}`);
   console.log(`   Usuários: admin@vistor.app / zelador@vistor.app (senha: vistor123)`);
